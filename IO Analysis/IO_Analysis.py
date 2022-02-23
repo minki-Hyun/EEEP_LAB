@@ -2,15 +2,21 @@ import numpy as np
 import pandas as pd
 import IO_Analysis_lib as ioa
 
-url = "C:\PythonWorkspace\Lab_code\EEEP_LAB\투입산출표_생산자가격_통합중분류.xlsx"
+url_base = input("폴더 경로를 입력하시오:\n")
+url_fexcel_io = input("분석하고자 하는 산업연관표의 파일 이름을 입력하시오:\n")
+url_fexcel_sep = input("분석하고자 하는 산업연관표의 부문분류표 파일 이름을 입력하시오:\n")
 
-large_z_sizenum = 33
-small_z_sizenum = 83
+url = url_base+"\\"+url_fexcel_io
+url1 = url_base+"\\"+url_fexcel_sep
 
+# 부문 쪼개기
+sep_li, large_z_sizenum, small_z_sizenum, sel_business,sel_business_lar  = ioa.sep(url1)
+
+# io 엑셀 불러오기
 io_mat, io_mat_a, column_list, row_list = ioa.func_Load_excel(url)
 
 #통합 행렬 만들기
-s_mat = ioa.func_integrated_matrix(large_z_sizenum,small_z_sizenum,4,1)
+s_mat = ioa.func_integrated_matrix(url,sep_li,large_z_sizenum,small_z_sizenum,sel_business,sel_business_lar) # 4,1도 자동화?
 print("통합행렬\n\n",s_mat,"\n")
 
 # 재통합된 산출표 만들기

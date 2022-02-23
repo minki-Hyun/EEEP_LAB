@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 
 #=============================================================================================================================================================================
-# 엑셀 불러오기
+# IO 엑셀 불러오기
 
 def func_Load_excel(url):
     io_mat_a = pd.read_excel(url,sheet_name="A표_국산거래표(생산자가격)", header=5, index_col=1)
@@ -24,25 +24,75 @@ def func_Load_excel(url):
 
 #=============================================================================================================================================================================
 
+# 부문분류표 들고와서 대분류 하나에 기본부문 몇개인지
+
+def sep (url):
+
+#1. 대분류 하나에 기본부문 몇개인지
+    
+    file = pd.read_excel(url, sheet_name="상품분류표",header = 1, usecols=["중분류(83)","대분류(33)"])
+    # format(str.__contains__(self, o))
+    file = file.iloc[1:,:]
+    file_a = file.dropna(axis=0,how = 'all')
+    b= list(file_a.count())
+    large_z_sizenum = b[1]
+    small_z_sizenum = b[0]
+
+    # 나중에 for문 돌릴 때 마지막 false 안나오는거 고쳐줌
+    a = {'중분류(83)' : 'flag_a', '대분류(33)' : ['flag_b']}
+    a = pd.DataFrame(a,columns=["중분류(83)","대분류(33)"])
+    file_b = pd.concat([file_a,a], axis = 0, ignore_index=True)
+    
+    file_b = pd.isnull(file_b)
+    file_b = file_b.to_numpy()
+    rows, columns = file_b.shape
+
+    j = 1
+    li = []
+
+    for i in range(1, rows):
+        
+        if file_b[i,1]==False:
+            li.append(j)
+            j = 1
+        else:
+            j+=1
+
+#2. 내가  선택한 부문이 몇번째이며, 대분류 어디에 속하는지
+    
+    flag_sep1 = input("분석하고자 하는 산업의 코드를 입력하세요:\n")
+    flag_sep2 = input("분석하고자 하는 산업이 속한 대분류 코드를 입력하세요:\n")
+
+    file_a_a = file_a.iloc[:,0].to_numpy()
+    sel_business = np.where(file_a_a == flag_sep1)
+    sel_business = sel_business[0]
+
+    file_a_b = file_a.iloc[:,1].dropna()#nan값 제거
+    file_a_b = file_a_b.to_numpy()
+    sel_business_lar = np.where(file_a_b == flag_sep2)
+    sel_business_lar = sel_business_lar[0]
+
+    return li,large_z_sizenum,small_z_sizenum,int(sel_business)+1,int(sel_business_lar)+1
+
+#=============================================================================================================================================================================
+
+
 # 통합행렬 만들기
 
-def func_integrated_matrix (large_z_sizenum,small_z_sizenum, sel_business, sel_business_lar):
-#앞의 변수 2개는 "갯수" 기준(Ex:34개), 뒤의 변수 2개는 "인덱스"기준 : 이름이랑 일치하느냐로 뽑을 거임
-    print("선택하신 부문을 대분류 기준으로 통합합니다.\n하나의 대분류안에 몇 개의 부문이 있나요?.\n\nEX)\n(수산업 화력 수력)=대분류 1\n(농업,광산업)=대분류2라면 입력:2 3\n")
+def func_integrated_matrix (url1,sep_li,large_z_sizenum,small_z_sizenum, sel_business, sel_business_lar):
     
-    sep_category = list(input().split())
-    sep_category = list(map(int,sep_category))
+    #통합행렬 시작
     s_mat = np.zeros((large_z_sizenum + 1,small_z_sizenum))
 
     a0 = 0
 
     for i in range(0, large_z_sizenum):
-        b0 = a0 + sep_category[i]
+        b0 = a0 + sep_li[i]
 
         for j in range(a0,b0):
             s_mat[i,j] = 1
         
-        a0 += sep_category[i]
+        a0 += sep_li[i]
     
     s_mat[sel_business_lar-1,sel_business-1] = 0
     s_mat[large_z_sizenum,sel_business-1] = 1
@@ -193,56 +243,3 @@ def func_employ_eff(large_z_sizenum, prod_eff,employ_coeff):
     employ_eff = employ_hat @ prod_eff
     
     return pd.DataFrame(employ_eff)
-
-#=============================================================================================================================================================================
-#=============================================================================================================================================================================
-#=============================================================================================================================================================================
-#=============================================================================================================================================================================
-#=============================================================================================================================================================================
-
-#이 밑에부터는 처음에 짠것
-
-# 엑셀 받기
-def Load_excel(url):
-    io_mat = pd.read_excel(url,sheet_name="A표_국산거래표(생산자)", header=5,usecols='B:')
-    print (io_mat)
-
-
-#=============================================================================================================================================================================
-
-# 변수받기
-
-def starting_program ():
-    print("IO분석을 시작합니다.\n=====================================================================================")
-    # 변수/ 파일 정의 : 바꿔야 할 부분
-    while 1:
-        analysis_type = input("분석하고자 하는 부문을 입력하세요.\n기본부문 - 1, 소분류 - 2, 중분류 - 3 : ")
-        
-
-        if analysis_type == "1" :
-            z_sizenum = int(input("국산거래표(생산자가격)의 기본부문 갯수를 입력하세요 : "))
-            large_z_sizenum = int(input("국산거래표(생산자가격)의 대분류 갯수를 입력하세요 : "))
-            sel_business = list(input("분석하실 기본부문의 이름을 입력하세요.(부문이 여러개라면 띄워쓰기를 포함하여 연속으로 입력하세요.)\nEX)화력 수력"))
-            sel_business_lar = list(input("분석하실 기본부문이 속해있는 대분류의 이름을 입력하세요.(부문이 여러개라면 띄워쓰기를 포함하여 연속으로 입력하세요.)\nEX)화력 수력"))
-            break
-        
-        elif analysis_type == "2" :
-            z_sizenum = int(input("국산거래표(생산자가격)의 소분류 갯수를 입력하세요 : "))
-            large_z_sizenum = int(input("국산거래표(생산자가격)의 대분류 갯수를 입력하세요 : "))
-            sel_business = list(input("분석하실 기본부문의 이름을 입력하세요.(부문이 여러개라면 띄워쓰기를 포함하여 연속으로 입력하세요.)\nEX)화력 수력"))
-            sel_business_lar = list(input("분석하실 기본부문이 속해있는 대분류의 이름을 입력하세요.(부문이 여러개라면 띄워쓰기를 포함하여 연속으로 입력하세요.)\nEX)화력 수력"))
-            break
-        
-        elif analysis_type == "3" :
-            z_sizenum = int(input("국산거래표(생산자가격)의 중분류 갯수를 입력하세요 : "))
-            large_z_sizenum = int(input("국산거래표(생산자가격)의 대분류 갯수를 입력하세요 : "))
-            sel_business = list(input("분석하실 기본부문의 이름을 입력하세요.(부문이 여러개라면 띄워쓰기를 포함하여 연속으로 입력하세요.)\nEX)화력 수력"))
-            sel_business_lar = list(input("분석하실 기본부문이 속해있는 대분류의 이름을 입력하세요.(부문이 여러개라면 띄워쓰기를 포함하여 연속으로 입력하세요.)\nEX)화력 수력"))
-            break
-        
-        else : 
-            print("오류! 1,2,3을 제외한 숫자 또는 다른 문자를 입력했을 수 있습니다. 다시 입력하세요.")
-
-    print("분석하기를 원하는 산업을 입력하세요.이때 갯수가 여러개라면, 띄어쓰기를 포함하세요.\nEX)수산업 화력 수력")
-    list1 = list(input().split())
-    return list1, z_sizenum, large_z_sizenum, sel_business, sel_business_lar
