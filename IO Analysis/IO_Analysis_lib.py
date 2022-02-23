@@ -5,7 +5,7 @@ import pandas as pd
 # IO 엑셀 불러오기
 
 def func_Load_excel(url):
-    io_mat_a = pd.read_excel(url,sheet_name="A표_국산거래표(생산자가격)", header=5, index_col=1)
+    io_mat_a = pd.read_excel(url,sheet_name="A표_국산거래표(생산자)", header=5, index_col=1)
     io_mat_a = io_mat_a.drop(io_mat_a.columns[0], axis=1)
     io_mat_a = io_mat_a.iloc[:-1,:] # 뒤에서부터 1행
     #국산거래표 그대로 들고 옴
@@ -26,11 +26,11 @@ def func_Load_excel(url):
 
 # 부문분류표 들고와서 대분류 하나에 기본부문 몇개인지
 
-def sep (url):
+def func_sep (url):
 
 #1. 대분류 하나에 기본부문 몇개인지
     
-    file = pd.read_excel(url, sheet_name="상품분류표",header = 1, usecols=["중분류(83)","대분류(33)"])
+    file = pd.read_excel(url, sheet_name="상품분류표",header = 1, usecols=["기본부문(381)","대분류(33)"])
     # format(str.__contains__(self, o))
     file = file.iloc[1:,:]
     file_a = file.dropna(axis=0,how = 'all')
@@ -39,8 +39,8 @@ def sep (url):
     small_z_sizenum = b[0]
 
     # 나중에 for문 돌릴 때 마지막 false 안나오는거 고쳐줌
-    a = {'중분류(83)' : 'flag_a', '대분류(33)' : ['flag_b']}
-    a = pd.DataFrame(a,columns=["중분류(83)","대분류(33)"])
+    a = {'기본부문(381)' : ['flag_a'], '대분류(33)' : ['flag_b']}
+    a = pd.DataFrame(a,columns=["기본부문(381)","대분류(33)"])
     file_b = pd.concat([file_a,a], axis = 0, ignore_index=True)
     
     file_b = pd.isnull(file_b)
@@ -60,26 +60,38 @@ def sep (url):
 
 #2. 내가  선택한 부문이 몇번째이며, 대분류 어디에 속하는지
     
-    flag_sep1 = input("분석하고자 하는 산업의 코드를 입력하세요:\n")
-    flag_sep2 = input("분석하고자 하는 산업이 속한 대분류 코드를 입력하세요:\n")
+    flag_sep1 = list(input("분석하고자 하는 산업의 코드를 입력하세요:\n").split())
+    flag_sep2 = list(input("분석하고자 하는 산업이 속한 대분류 코드를 입력하세요:\n").split())
+    sel_business = []
+    sel_business_lar = []
 
     file_a_a = file_a.iloc[:,0].to_numpy()
-    sel_business = np.where(file_a_a == flag_sep1)
-    sel_business = sel_business[0]
+
+    for i in range(0,len(flag_sep1)):
+        a= np.where(file_a_a==flag_sep1[i])
+        a= a[0]
+        b= a[0]
+        sel_business.append(b)
 
     file_a_b = file_a.iloc[:,1].dropna()#nan값 제거
     file_a_b = file_a_b.to_numpy()
-    sel_business_lar = np.where(file_a_b == flag_sep2)
-    sel_business_lar = sel_business_lar[0]
 
-    return li,large_z_sizenum,small_z_sizenum,int(sel_business)+1,int(sel_business_lar)+1
+    for j in range(0,len(flag_sep2)):
+        a= np.where(file_a_b == flag_sep2[j])
+        a= a[0]
+        b= a[0]
+        sel_business_lar.append(b)
+
+    return li,large_z_sizenum,small_z_sizenum,sel_business,sel_business_lar
+    
+   
 
 #=============================================================================================================================================================================
 
 
 # 통합행렬 만들기
 
-def func_integrated_matrix (url1,sep_li,large_z_sizenum,small_z_sizenum, sel_business, sel_business_lar):
+def func_integrated_matrix (url1,li,large_z_sizenum,small_z_sizenum, sel_business, sel_business_lar):
     
     #통합행렬 시작
     s_mat = np.zeros((large_z_sizenum + 1,small_z_sizenum))
@@ -87,15 +99,17 @@ def func_integrated_matrix (url1,sep_li,large_z_sizenum,small_z_sizenum, sel_bus
     a0 = 0
 
     for i in range(0, large_z_sizenum):
-        b0 = a0 + sep_li[i]
+        b0 = a0 + li[i]
 
         for j in range(a0,b0):
             s_mat[i,j] = 1
         
-        a0 += sep_li[i]
-    
-    s_mat[sel_business_lar-1,sel_business-1] = 0
-    s_mat[large_z_sizenum,sel_business-1] = 1
+        a0 += li[i]
+
+    for i in range(0,len(sel_business_lar)):
+        for j in range(0,len(sel_business)):
+            s_mat[sel_business_lar[i],sel_business[j]] = 0
+            s_mat[large_z_sizenum,sel_business[j]] = 1
 
     return s_mat
 
@@ -131,7 +145,7 @@ def func_total_demand(s_mat, demand_in_iomat,z_mat, large_z_sizenum):
 def func_added_value(url,s_mat,z_mat,total_demand):
     
     #부가가치계 불러오기
-    io_mat_b = pd.read_excel(url,sheet_name="A표_총거래표(생산자가격)", header=5, index_col=1)
+    io_mat_b = pd.read_excel(url,sheet_name="A표_총거래표(생산자)", header=5, index_col=1)
     io_mat_b = io_mat_b.drop(io_mat_b.columns[0], axis=1)
     io_mat_b = io_mat_b.loc["부가가치계",:]
     io_mat_b = pd.DataFrame(io_mat_b.dropna())
@@ -163,9 +177,9 @@ def func_prod_coeff (large_z_sizenum, z_mat, total_demand):
     for i in range(0,large_z_sizenum+1):
         x_hat_mat[i,i] = total_demand[i,0]
     
+    x_hat_mat_inv = np.linalg.inv(x_hat_mat)
     #2. A 구하기
-    A_mat = z_mat @ (np.linalg.inv(x_hat_mat))
-    
+    A_mat = z_mat @ x_hat_mat_inv
     
     #3. 생산유발계수 = prod_var_mat (레온티예프 역행렬) : (I-A)^(-1)
     prod_var_mat = np.linalg.inv(np.eye(large_z_sizenum+1) - A_mat)
@@ -182,7 +196,6 @@ def func_prod_eff (prod_coeff, A_mat):
     # A_mat = A_mat.to_numpy
     prod_coeff_a = prod_coeff.iloc[:-1,:-1]
     A_mat_a = A_mat.iloc[:-1,-1]
-
     prod_eff = prod_coeff_a @ A_mat_a
     
     return prod_eff
@@ -212,16 +225,30 @@ def func_added_eff (large_z_sizenum,prod_eff,added_value):
 # 취업유발계수 구하기
 
 def func_employ_coeff(url,s_mat,total_demand):
-    
-    #1. 취업인원 추출
-    employ_coeff_a = pd.read_excel(url,sheet_name="취업자수 및 피용자수(상품)_해당분류",index_col=0,skipfooter=1)
-    employ_coeff_a = employ_coeff_a.to_numpy()
-    employ_coeff_b = s_mat @ employ_coeff_a
-    
-    #2. 취업유발계수 구하기 (취업인원 / (총수요/1000) : 10억당 취업인원 수)
-    
-    total_demand = total_demand.to_numpy()
-    employ_coeff_c = employ_coeff_b / (total_demand / 1000)
+    a = input("선택하신 부문이 기본부문의 상품입니까?(y/n):\n")
+
+    while 1:
+
+        if a=="n":
+            #1. 취업인원 추출
+            employ_coeff_a = pd.read_excel(url,sheet_name="취업자수 및 피용자수(상품)_해당분류",index_col=0,skipfooter=1)
+            employ_coeff_a = employ_coeff_a.to_numpy()
+            employ_coeff_b = s_mat @ employ_coeff_a
+            
+            #2. 취업유발계수 구하기 (취업인원 / (총수요/1000) : 10억당 취업인원 수)
+            
+            total_demand = total_demand.to_numpy()
+            employ_coeff_c = employ_coeff_b / (total_demand / 1000)
+            break
+        
+        elif a=="y":
+            break
+
+        else:
+            print("y/n중에 입력하세요:")
+
+
+
 
     return pd.DataFrame(employ_coeff_c)
 
@@ -238,7 +265,7 @@ def func_employ_eff(large_z_sizenum, prod_eff,employ_coeff):
     for j in range(0,large_z_sizenum-1):
         employ_hat[j,j] = employ_coeff[j,0]
 
-    # 2. 부가가치유발효과 구하기
+    # 2. 취업유발효과 구하기
     
     employ_eff = employ_hat @ prod_eff
     
