@@ -30,17 +30,33 @@ def func_sep (url):
 
 #1. 대분류 하나에 기본부문 몇개인지
     
-    file = pd.read_excel(url, sheet_name="상품분류표",header = 1, usecols=["기본부문(381)","대분류(33)"])
-    # format(str.__contains__(self, o))
-    file = file.iloc[1:,:]
+    wd = input("선택하신 상품의 분류를 입력해주세요, Ex)기본부문: \n").replace(" ","")
+    file = pd.read_excel(url, sheet_name="상품분류표",header = 1)
+
+    # 기본부문, 중분류 상관없이 받아올 수 있도록 하기
+    title_list = list(file.columns.values)
+    title_flag1 = []
+    title_flag2 = []
+    
+    for i in range(len(title_list)):
+        if (wd in title_list[i])|("대분류" in title_list[i]):
+            title_flag1.append(i)
+            title_flag2.append(title_list[i])
+
+    file = file.iloc[1:,title_flag1]
+    print(file)
     file_a = file.dropna(axis=0,how = 'all')
     b= list(file_a.count())
     large_z_sizenum = b[1]
     small_z_sizenum = b[0]
 
     # 나중에 for문 돌릴 때 마지막 false 안나오는거 고쳐줌
-    a = {'기본부문(381)' : ['flag_a'], '대분류(33)' : ['flag_b']}
-    a = pd.DataFrame(a,columns=["기본부문(381)","대분류(33)"])
+    a = {}
+    for j in range(len(title_flag2)):
+        a[title_flag2[j]] = "flag_{}".format(j)
+    a = pd.DataFrame([a])
+    print(a)
+
     file_b = pd.concat([file_a,a], axis = 0, ignore_index=True)
     
     file_b = pd.isnull(file_b)
@@ -82,12 +98,9 @@ def func_sep (url):
         b= a[0]
         sel_business_lar.append(b)
 
-    return li,large_z_sizenum,small_z_sizenum,sel_business,sel_business_lar
-    
-   
+    return wd,li,large_z_sizenum,small_z_sizenum,sel_business,sel_business_lar
 
 #=============================================================================================================================================================================
-
 
 # 통합행렬 만들기
 
@@ -224,28 +237,25 @@ def func_added_eff (large_z_sizenum,prod_eff,added_value):
 
 # 취업유발계수 구하기
 
-def func_employ_coeff(url,s_mat,total_demand):
-    a = input("선택하신 부문이 기본부문의 상품입니까?(y/n):\n")
-
-    while 1:
-
-        if a=="n":
-            #1. 취업인원 추출
-            employ_coeff_a = pd.read_excel(url,sheet_name="취업자수 및 피용자수(상품)_해당분류",index_col=0,skipfooter=1)
-            employ_coeff_a = employ_coeff_a.to_numpy()
-            employ_coeff_b = s_mat @ employ_coeff_a
-            
-            #2. 취업유발계수 구하기 (취업인원 / (총수요/1000) : 10억당 취업인원 수)
-            
-            total_demand = total_demand.to_numpy()
-            employ_coeff_c = employ_coeff_b / (total_demand / 1000)
-            break
+def func_employ_coeff(wd,url,url1,s_mat,total_demand):
+    
+    if "기본부문" in wd:
+        employ_coeff_a = pd.read_excel(url,sheet_name="취업자수 및 피용자수(상품)_해당분류",index_col=0,skipfooter=1)
+        file = pd.read_excel(url1, sheet_name="상품분류표",header = 1, usecols=["기본부문(381)","소분류(165)"])
         
-        elif a=="y":
-            break
 
-        else:
-            print("y/n중에 입력하세요:")
+
+
+    else:
+        #1. 취업인원 추출
+        employ_coeff_a = pd.read_excel(url,sheet_name="취업자수 및 피용자수(상품)_해당분류",index_col=0,skipfooter=1)
+        employ_coeff_a = employ_coeff_a.to_numpy()
+        employ_coeff_b = s_mat @ employ_coeff_a
+        
+        #2. 취업유발계수 구하기 (취업인원 / (총수요/1000) : 10억당 취업인원 수)
+        
+        total_demand = total_demand.to_numpy()
+        employ_coeff_c = employ_coeff_b / (total_demand / 1000)
 
 
 

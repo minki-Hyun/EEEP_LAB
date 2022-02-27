@@ -10,7 +10,7 @@ url = url_base+"\\"+url_fexcel_io
 url1 = url_base+"\\"+url_fexcel_sep
 
 # 부문 쪼개기
-sep_li, large_z_sizenum, small_z_sizenum, sel_business,sel_business_lar  = ioa.func_sep(url1)
+wd, sep_li, large_z_sizenum, small_z_sizenum, sel_business,sel_business_lar  = ioa.func_sep(url1)
 
 # io 엑셀 불러오기
 io_mat, io_mat_a, column_list, row_list = ioa.func_Load_excel(url)
@@ -34,7 +34,7 @@ added_value = ioa.func_added_value(url,s_mat,z_mat,total_demand)
 print("부가가치계수\n",added_value,"\n\n")
 
 # 생산유발계수 구하기
-prod_coeff, A_mat = ioa.func_prod_coeff(large_z_sizenum,z_mat,total_demand)
+prod_coeff, A_mat = ioa.func_prod_coeff(wd,large_z_sizenum,z_mat,total_demand)
 print("생산유발계수\n",prod_coeff,"\n\n")
 
 #생산유발효과 구하기
@@ -46,7 +46,7 @@ add_eff = ioa.func_added_eff(large_z_sizenum, prod_eff, added_value)
 print("부가가치유발효과\n", add_eff, "\n\n")
 
 # # 취업유발계수 구하기
-# employ_coeff = ioa.func_employ_coeff(url, s_mat, total_demand)
+# employ_coeff = ioa.func_employ_coeff(url, url1, s_mat, total_demand)
 # print("취업유발계수\n",employ_coeff,"\n\n")
 
 # # 취업유발효과 구하기
