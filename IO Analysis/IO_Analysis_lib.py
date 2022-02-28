@@ -176,7 +176,7 @@ def func_added_value(url,sh_name_totalio,s_mat,z_mat,total_demand):
 #=============================================================================================================================================================================
 
 # 생산유발계수 구하기
-
+# 여기서부터 오류났음
 def func_prod_coeff (large_z_sizenum, z_mat, total_demand):
     
     #1. x_hat 구하기
@@ -185,7 +185,7 @@ def func_prod_coeff (large_z_sizenum, z_mat, total_demand):
     
     for i in range(0,large_z_sizenum+1):
         x_hat_mat[i,i] = total_demand[i,0]
-    
+    print(x_hat_mat)
     x_hat_mat_inv = np.linalg.inv(x_hat_mat)
     #2. A 구하기
     A_mat = z_mat @ x_hat_mat_inv
