@@ -4,13 +4,13 @@ import pandas as pd
 #=============================================================================================================================================================================
 # IO 엑셀 불러오기
 
-def func_Load_excel(url):
-    io_mat_a = pd.read_excel(url,sheet_name="A표_국산거래표(생산자)", header=5, index_col=1)
-    io_mat_a = io_mat_a.drop(io_mat_a.columns[0], axis=1)
-    io_mat_a = io_mat_a.iloc[:-1,:] # 뒤에서부터 1행
+def func_Load_excel(url,sh_name_rawio):
+    io_mat_raw = pd.read_excel(url,sheet_name=sh_name_rawio, header=5, index_col=1)
+    io_mat_raw = io_mat_raw.drop(io_mat_raw.columns[0], axis=1)
+    io_mat_raw = io_mat_raw.iloc[:-1,:] # 뒤에서부터 1행
     #국산거래표 그대로 들고 옴
 
-    io_mat = io_mat_a.iloc[:,:-10]
+    io_mat = io_mat_raw.iloc[:,:-10]
     #뒤에서부터 10열 삭제. 이때 iloc 대신 loc 쓰면 오류남 : loc는 라벨로 받음 "기타" 이런 식으로
 
     column_list = list(io_mat.columns.values)
@@ -20,18 +20,18 @@ def func_Load_excel(url):
     io_mat = io_mat.replace("\\n","", regex=True)
 
     # io_mat = io_mat_raw.drop(["중간수요계","최종수요계","총수요계"],axis=1)
-    return io_mat,io_mat_a,column_list,rows_list
+    return io_mat,io_mat_raw,column_list,rows_list
 
 #=============================================================================================================================================================================
 
 # 부문분류표 들고와서 대분류 하나에 기본부문 몇개인지
 
-def func_sep (url):
+def func_sep (url1,sh_name_distribution):
 
 #1. 대분류 하나에 기본부문 몇개인지
     
     wd = input("선택하신 상품의 분류를 입력해주세요, Ex)기본부문: \n").replace(" ","")
-    file = pd.read_excel(url, sheet_name="상품분류표",header = 1)
+    file = pd.read_excel(url1, sheet_name=sh_name_distribution,header = 1)
 
     # 기본부문, 중분류 상관없이 받아올 수 있도록 하기
     title_list = list(file.columns.values)
@@ -137,7 +137,6 @@ def func_new_table(s_mat,io_mat):
     
     return z_mat
 
-
 #=============================================================================================================================================================================
 
 # 총 수요 구하기 ( = 총 투입)
@@ -155,10 +154,10 @@ def func_total_demand(s_mat, demand_in_iomat,z_mat, large_z_sizenum):
 
 # 부가가치계수 구하기
 
-def func_added_value(url,s_mat,z_mat,total_demand):
+def func_added_value(url,sh_name_totalio,s_mat,z_mat,total_demand):
     
     #부가가치계 불러오기
-    io_mat_b = pd.read_excel(url,sheet_name="A표_총거래표(생산자)", header=5, index_col=1)
+    io_mat_b = pd.read_excel(url,sheet_name=sh_name_totalio, header=5, index_col=1)
     io_mat_b = io_mat_b.drop(io_mat_b.columns[0], axis=1)
     io_mat_b = io_mat_b.loc["부가가치계",:]
     io_mat_b = pd.DataFrame(io_mat_b.dropna())
@@ -197,7 +196,6 @@ def func_prod_coeff (large_z_sizenum, z_mat, total_demand):
     #3. 생산유발계수 = prod_var_mat (레온티예프 역행렬) : (I-A)^(-1)
     prod_var_mat = np.linalg.inv(np.eye(large_z_sizenum+1) - A_mat)
     
-
     return pd.DataFrame(prod_var_mat),pd.DataFrame(A_mat)
 
 #=============================================================================================================================================================================
@@ -237,18 +235,57 @@ def func_added_eff (large_z_sizenum,prod_eff,added_value):
 
 # 취업유발계수 구하기
 
-def func_employ_coeff(wd,url,url1,s_mat,total_demand):
+def func_employ_coeff(wd,url,url1,s_mat,total_demand,sh_name_distribution,io_mat_raw,sh_name_employ):
     
     if "기본부문" in wd:
-        employ_coeff_a = pd.read_excel(url,sheet_name="취업자수 및 피용자수(상품)_해당분류",index_col=0,skipfooter=1)
-        file = pd.read_excel(url1, sheet_name="상품분류표",header = 1, usecols=["기본부문(381)","소분류(165)"])
+        # 1. 기본부문, 소분류 분류표 뽑아서 NAN 있는지 없는지를 True, False로
+        file = pd.read_excel(url1, sheet_name=sh_name_distribution,header = 1, usecols=["기본부문(381)","소분류(165)"])
+        file = file.iloc[1:,:]
+        file_title = list(file.columns)
+        flag_dic = {}
+        for i in range(len(file_title)):
+            flag_dic[file_title[i]] = "flag_{}".format(i)
+        flag_dic = pd.DataFrame([flag_dic])
+        file_b = pd.concat([file,flag_dic], axis = 0, ignore_index=True)
+        file_b = file_b.isna()
+        file_b = file_b.to_numpy()
         
+        li = []
+        j = 1
+        for i in range(1,file_b.shape[0]):
+            if file_b[i,1]==False:
+                li.append(j)
+                j = 1
+            else:
+                j+=1
 
+        # 2-1. 소분류 취업인원을 기본부문으로 확장하기 위해 하나의 소분류 안에 들어있는 기본부문 총수요의 합을 구함(국산거래표)
+        # 이때, 식은 취업자수(165)*(기본부문(361)/기본부문의합(165)) 이기 때문에, 취업자수 / 기본부문의합을 먼저해줌
+        io_mat_a = io_mat_raw.loc[:,"총수요계"].to_numpy()
+        li1 = []
+        a0=0
+        for i in range(0,len(li)):
+            sum0 = 0
+            for j in range (a0 , a0+li[i]):
+                sum0 += io_mat_a[j]
+            li1.append(sum0)
+            a0 += li[i]
 
+        io_mat_employ = pd.read_excel(url,sheet_name=sh_name_employ,index_col=0,skipfooter=1)
+        flag_em = io_mat_employ.to_numpy() / np.array(li1).reshape(len(li1),1)
 
+        # 2-2. (취업자수) / (기본부문의 합)에 기본부문(361)을 곱해줌으로써, 각 부문별 취업인원을 구해줌
+        io_mat_b = np.array([])
+        a0 = 0  
+        for i in range(0,len(flag_em)):
+            for j in range (a0, a0+li[i]):
+                io_mat_b=np.append(io_mat_b,io_mat_a[j]*flag_em[i])
+            a0 += li[i]
+        return pd.DataFrame(io_mat_b)
+        
     else:
         #1. 취업인원 추출
-        employ_coeff_a = pd.read_excel(url,sheet_name="취업자수 및 피용자수(상품)_해당분류",index_col=0,skipfooter=1)
+        employ_coeff_a = pd.read_excel(url,sheet_name=sh_name_employ,index_col=0,skipfooter=1)
         employ_coeff_a = employ_coeff_a.to_numpy()
         employ_coeff_b = s_mat @ employ_coeff_a
         
@@ -256,11 +293,7 @@ def func_employ_coeff(wd,url,url1,s_mat,total_demand):
         
         total_demand = total_demand.to_numpy()
         employ_coeff_c = employ_coeff_b / (total_demand / 1000)
-
-
-
-
-    return pd.DataFrame(employ_coeff_c)
+        return pd.DataFrame(employ_coeff_c)
 
 #=============================================================================================================================================================================
 
@@ -280,3 +313,30 @@ def func_employ_eff(large_z_sizenum, prod_eff,employ_coeff):
     employ_eff = employ_hat @ prod_eff
     
     return pd.DataFrame(employ_eff)
+
+#=============================================================================================================================================================================
+
+# 수출유발계수 구하기
+def func_export(url,s_mat,total_demand,io_mat_raw):
+    io_mat_a = io_mat_raw.loc[:,"수출"].to_numpy()
+    io_mat_b = np.array(io_mat_a @ np.transpose(s_mat)).reshape(len(s_mat),1)
+    io_mat_a_coeff = io_mat_b / total_demand.to_numpy()
+    return pd.DataFrame(io_mat_a_coeff)
+
+#=============================================================================================================================================================================
+
+# 수출유발효과 구하기
+def func_export_eff(export_coeff,large_z_sizenum, prod_eff):
+    # 1. 수출유발계수_hat 구하기
+    
+    export_coeff = export_coeff.to_numpy()
+    export_coeff_hat = np.zeros((large_z_sizenum,large_z_sizenum))
+
+    for j in range(0,large_z_sizenum-1):
+        export_coeff_hat[j,j] = export_coeff[j,0]
+    
+    # 2. 수출유발효과 구하기
+    
+    export_eff = export_coeff_hat @ prod_eff
+
+    return pd.DataFrame(export_eff)
