@@ -5,7 +5,7 @@ import IO_Analysis_lib as ioa
 #=============================================================================================================================================================================
 # 변수정의
 
-with open("C:\\PythonWorkspace\\Lab_code\\IO Analysis\\path.txt","r",encoding="UTF-8") as txtfile:
+with open("C:\\PythonWorkspace\\EEEP_LAB\\IO Analysis\\path.txt","r",encoding="UTF-8") as txtfile:
     string = txtfile.readlines()
 
 url_base = string[0].strip()
